@@ -1,5 +1,5 @@
 # Pokemon-Savefile-Editor
-Savefile editor for the 4th generation NDS Pokemon games
+Command line savefile editor for the 4th generation NDS Pokemon games
 
 Tested only on Debian 10 using [DeSmuME  - DS Emulator](http://desmume.com/)
 
