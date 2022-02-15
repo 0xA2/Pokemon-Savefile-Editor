@@ -38,4 +38,5 @@ Versions available: 'diamond', 'pearl', 'platinum', 'heartgold', 'soulsilver'
 1) Edit player
 2) Edit Pokemon
 3) Exit
+> 
 ```
