@@ -19,6 +19,8 @@ Tested only on Debian 10 using [DeSmuME  - DS Emulator](http://desmume.com/)
 Compile with: $ g++ saveditor.ccp -o saveditor
 ```
 
+---------------
+
 ### Usage
 ```bash
 $ ./saveditor
@@ -27,3 +29,13 @@ Versions available: 'diamond', 'pearl', 'platinum', 'heartgold', 'soulsilver'
 ```
 
 ---------------
+### Main Menu
+
+```bash
+-------------------------------
+    Pokemon Savefile Editor
+-------------------------------
+1) Edit player
+2) Edit Pokemon
+3) Exit
+```
