@@ -748,9 +748,9 @@ int main(int argc, char *argv[]){
 						default:
 							cout << "Invalid Option!" << endl;
 					}
-
-				if(flag) { break; };
-			}
+					if(flag) { break; };
+				}
+				break;
 			case 2:
 
 				while(true){
@@ -795,6 +795,7 @@ int main(int argc, char *argv[]){
 					}
 					if(flag){break;}
 				}
+				break;
 			case 3:
 				// Exit
 				exit(EXIT_SUCCESS);
