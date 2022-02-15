@@ -24,7 +24,7 @@ Compile with: $ g++ saveditor.ccp -o saveditor
 ### Usage
 ```bash
 $ ./saveditor
-Usage: ./saveditor [FileName] [VersionName]
+Usage: ./saveditor [SavefileName] [VersionName]
 Versions available: 'diamond', 'pearl', 'platinum', 'heartgold', 'soulsilver'
 ```
 
