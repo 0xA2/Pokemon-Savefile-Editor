@@ -10,7 +10,7 @@ Tested only on Debian 10 using [DeSmuME  - DS Emulator](http://desmume.com/)
 - Editing player name
 - Editing species of lead pokemon
 - Editing ability of lead pokemon
-- Editing Moves of lead pokemon
+- Editing moves of lead pokemon
 
 ---------------
 
