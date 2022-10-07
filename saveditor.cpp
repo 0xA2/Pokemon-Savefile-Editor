@@ -1,9 +1,7 @@
 /*
 	Notes:
 		 -> (!) Program assumes file in argv[1] is a valid save file for 4th gen NDS pokemon games
-		 -> (!) Only works consistently if game has been saved an even number of times
-		 		-> (TODO: solve this issue by implementing a function that finds the last block to which data was saved)
-		 -> Program has only been tested on the desmume emulator
+		 -> Program has only been tested on the desmume emulator on linux
 */
 
 #include <climits>
