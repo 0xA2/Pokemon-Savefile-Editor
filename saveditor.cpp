@@ -1,3 +1,11 @@
+/*
+	Notes:
+		 -> (!) Program assumes file in argv[1] is a valid save file for 4th gen NDS pokemon games
+		 -> (!) Only works consistently if game has been saved an even number of times
+		 		-> (TODO: solve this issue by implementing a function that finds the last block to which data was saved)
+		 -> Program has only been tested on the desmume emulator
+*/
+
 #include <climits>
 #include <cstring>
 #include <fstream>
@@ -20,6 +28,7 @@ using namespace std;
 #define smallBlockChecksumOffset 3
 #define checksumValueOffset 4
 #define leadPokemonOffset 5
+#define totalTime 6
 
 // Version Lables for General Offsets
 #define diamond 0
@@ -34,12 +43,14 @@ using namespace std;
 #define pokemonChecksumOffset 2
 #define speciesID 3
 #define heldItem 4
-#define ability 5
-#define moveset 6
-#define movePP 7
-#define movePPup 8
-#define IVs 9
-#define nickname 10
+#define otid 5
+#define otSecretID 6
+#define ability 7
+#define moveset 8
+#define movePP 9
+#define movePPup 10
+#define IVs 11
+#define nickname 12
 
 // --- Block Addresses --- //
 
@@ -67,7 +78,8 @@ int dp[] = {
 	0x76, // secretID
 	0xc0ec, // smallBlockChecksumOffset
 	0xc0fe, // checksumValueOffset
-	0x98 // leadPokemonOffset
+	0x98, // leadPokemonOffset
+	0x86 // totalTime - hours: 16bits; minutes: 8bits; seconds: 8bits
 };
 
 // Offsets for Platinum versions
@@ -77,7 +89,8 @@ int p[] = {
 	0x7a, // secretID
 	0xcf18, // smallBlockChecksumOffset
 	0xcf2a, // checksumValueOffset
-	0xa0 // leadPokemonOffset
+	0xa0, // leadPokemonOffset
+	0x8a // totalTime - hours: 16bits; minutes: 8bits; seconds: 8bits
 };
 
 // Offsets for Heartgold and Soulsilver versions
@@ -87,7 +100,8 @@ int hgss[] = {
 	0x76, // secretID
 	0xf618, // smallBlockChecksumOffset
 	0xf626, // checksumValueOffset
-	0x98 // leadPokemonOffset
+	0x98, // leadPokemonOffset
+	0x86 // totalTime - hours: 16bits; minutes: 8bits; seconds: 8bits
 };
 
 // - - - Mapping version names to respective offsets - - - //
@@ -107,6 +121,8 @@ int pokemon[] = {
 	// Block A
 	0x08, // speciesID
 	0x0a, // heldItem
+	0x0c, // otid
+	0x0e, // otSecretID
 	0x15, // ability
 
 	// Block B (untested)
@@ -158,7 +174,7 @@ void writeFile(const char* filename, vector<unsigned char> data){
 
 }
 
-// - - - Small Block Checksum Functions - - - //
+// - - - Small Block Functions - - - //
 
 // Calculate savefile checksum for given small block data
 int crc16ccitt(vector<unsigned char> dataChunk){
@@ -223,6 +239,30 @@ void updateChecksum(vector<unsigned char>& data, int newValue, int block, int ve
 	}
 }
 
+// Find out in which block the last save was stored
+int getCurBlock(vector<unsigned char> data, int version){
+
+	int block1 = data[smallBlock1 + versionNames[version][totalTime]+1];
+	int block2 = data[smallBlock2 + versionNames[version][totalTime]+1];
+
+	if(block1 == 0xff){
+		cout << "Error: save the game at least twice before editing" << endl;
+		exit(EXIT_FAILURE);
+	}
+
+	block1 = block1 << 8; block1 += data[smallBlock1 + versionNames[version][totalTime]];
+	block1 *= 60*60;
+	block1 += data[smallBlock1 + versionNames[version][totalTime]+3];
+	block1 += data[smallBlock1 + versionNames[version][totalTime]+2]*60;
+	block2 = block2 << 8; block2 += data[smallBlock2 + versionNames[version][totalTime]];
+	block2 *= 60*60;
+	block2 += data[smallBlock2 + versionNames[version][totalTime]+3];
+	block2 += data[smallBlock2 + versionNames[version][totalTime]+2]*60;
+	if(block1 > block2){ return 1; }
+	else if(block1 < block2){ return 2; }
+	else{ return 2;}
+}
+
 // - - - Handle Pokemon Data Functions - - - //
 
 // Get the Pokemon's 'Personality Value'
@@ -279,6 +319,7 @@ char fromGameEncoding(int n){
 	// -> the offset to block B is at index 1
 	// -> the offset to block C is at index 2
 	// -> the offset to block D is at index 3
+
 vector<int> getBlockOffsets(int pv){
 
 	// Note: pv stands for Personality Value
@@ -351,8 +392,8 @@ int getPokemonChecksum(vector<unsigned char> data, int block, int version){
 		return ret;
 	}
 	else if(block == 2){
-		ret += data[smallBlock1 + versionNames[version][leadPokemonOffset] + pokemon[pokemonChecksumOffset] + 1] << 8;
-		ret += data[smallBlock1 + versionNames[version][leadPokemonOffset] + pokemon[pokemonChecksumOffset]];
+		ret += data[smallBlock2 + versionNames[version][leadPokemonOffset] + pokemon[pokemonChecksumOffset] + 1] << 8;
+		ret += data[smallBlock2 + versionNames[version][leadPokemonOffset] + pokemon[pokemonChecksumOffset]];
 		return ret;
 	}
 	else{
@@ -566,8 +607,51 @@ void editPokemonMove(vector<unsigned char>& data, string moveName, int moveSlot,
 	}
 }
 
-// Edit the moves of lead pokemon
+// Make lead pokemon shiny
+void makePokemonShiny(vector<unsigned char>& data, vector<int> blockOffsets, int block, int version){
+
+	int pv;
+	if(block == 1){
+
+		// Get the personality value for the pokemon
+		pv = data[smallBlock1 + versionNames[version][leadPokemonOffset] + pokemon[personalityValueOffset]];
+		pv += (data[smallBlock1 + versionNames[version][leadPokemonOffset] + pokemon[personalityValueOffset]+1] << 8);
+		pv += (data[smallBlock1 + versionNames[version][leadPokemonOffset] + pokemon[personalityValueOffset]+2] << 16);
+		pv += (data[smallBlock1 + versionNames[version][leadPokemonOffset] + pokemon[personalityValueOffset]+3] << 24);
+
+		// Edit Pokemon OTID and SecretID to lower and upper bytes of pv
+		data[smallBlock1 + versionNames[version][leadPokemonOffset] + blockOffsets[0] + pokemon[otid]] = pv;
+		data[smallBlock1 + versionNames[version][leadPokemonOffset] + blockOffsets[0] + pokemon[otid]+1] = (pv >> 8) & 0xff;
+		data[smallBlock1 + versionNames[version][leadPokemonOffset] + blockOffsets[0] + pokemon[otSecretID]] = (pv >> 16) & 0xff;
+		data[smallBlock1 + versionNames[version][leadPokemonOffset] + blockOffsets[0] + pokemon[otSecretID]+1] = pv >> 24;
+
+	}
+	else if(block == 2){
+
+		// Get the personality value for the pokemon
+		pv = data[smallBlock2 + versionNames[version][leadPokemonOffset] + pokemon[personalityValueOffset]];
+		pv += (data[smallBlock2 + versionNames[version][leadPokemonOffset] + pokemon[personalityValueOffset]+1] << 8);
+		pv += (data[smallBlock2 + versionNames[version][leadPokemonOffset] + pokemon[personalityValueOffset]+2] << 16);
+		pv += (data[smallBlock2 + versionNames[version][leadPokemonOffset] + pokemon[personalityValueOffset]+3] << 24);
+
+		// Edit Pokemon OTID and SecretID to lower and upper bytes of pv
+		data[smallBlock2 + versionNames[version][leadPokemonOffset] + blockOffsets[0] + pokemon[otid]] = pv;
+		data[smallBlock2 + versionNames[version][leadPokemonOffset] + blockOffsets[0] + pokemon[otid]+1] = (pv >> 8) & 0xff;
+		data[smallBlock2 + versionNames[version][leadPokemonOffset] + blockOffsets[0] + pokemon[otSecretID]] = (pv >> 16) & 0xff;
+		data[smallBlock2 + versionNames[version][leadPokemonOffset] + blockOffsets[0] + pokemon[otSecretID]+1] = pv >> 24;
+
+	}
+	else{
+		cout << "Error: could not edit pokemon" << endl;
+		exit(EXIT_FAILURE);
+	}
+
+}
+
+// Function that handles the encryption and calls specified pokemon edit function
 void editPokemon(vector<unsigned char>& data, string pokemonName, string abilityName, string moveName, int moveSlot, vector<int> blockOffsets, int block, int version, int option){
+
+    cout << block << endl;
 
 	// Get the current pokemon checksum do decrypt the pokemon data block
 	int curPokemonChecksum = getPokemonChecksum(data, block, version);
@@ -590,6 +674,10 @@ void editPokemon(vector<unsigned char>& data, string pokemonName, string ability
 			// Edit Pokemon Name
 			editPokemonMove(data, moveName, moveSlot, blockOffsets, block, version);
 			break;
+		case 4:
+			// Make Pokemon Shiny
+			makePokemonShiny(data, blockOffsets, block, version);
+			break;
 		default:
 			cout << "Error: could not edit pokemon" << endl;
 			exit(EXIT_FAILURE);
@@ -597,20 +685,43 @@ void editPokemon(vector<unsigned char>& data, string pokemonName, string ability
 
 
 	// Create chunk of data to calculate new pokemon checksum
-	vector<unsigned char> chunk = getSubVector(data, smallBlock1+versionNames[version][leadPokemonOffset]+0x08, smallBlock1+versionNames[version][leadPokemonOffset]+0x88);
-	int newPokemonChecksum = calcPokemonChecksum(chunk);
+	vector<unsigned char> chunk;
+	if(block == 1){
+		chunk = getSubVector(data, smallBlock1+versionNames[version][leadPokemonOffset]+0x08, smallBlock1+versionNames[version][leadPokemonOffset]+0x88);
+		int newPokemonChecksum = calcPokemonChecksum(chunk);
 
-	// Update pokemon checksum
-	updatePokemonChecksum(data, newPokemonChecksum, block, version);
+		// Update pokemon checksum
+		updatePokemonChecksum(data, newPokemonChecksum, block, version);
 
-	// Encrypt pokemon data block
-	prng(data, newPokemonChecksum, block, version);
+		// Encrypt pokemon data block
+		prng(data, newPokemonChecksum, block, version);
 
 
-	// Update save file checksum
-	vector<unsigned char> tmp = getSubVector(data, smallBlock1, smallBlock1 + versionNames[version][smallBlockChecksumOffset]);
-	int sum =  crc16ccitt(tmp);
-	updateChecksum(data, sum, block, version);
+		// Update save file checksum
+		vector<unsigned char> tmp = getSubVector(data, smallBlock1, smallBlock1 + versionNames[version][smallBlockChecksumOffset]);
+		int sum =  crc16ccitt(tmp);
+		updateChecksum(data, sum, block, version);
+	}
+	else if (block == 2){
+		chunk = getSubVector(data, smallBlock2+versionNames[version][leadPokemonOffset]+0x08, smallBlock2+versionNames[version][leadPokemonOffset]+0x88);
+		int newPokemonChecksum = calcPokemonChecksum(chunk);
+
+		// Update pokemon checksum
+		updatePokemonChecksum(data, newPokemonChecksum, block, version);
+
+		// Encrypt pokemon data block
+		prng(data, newPokemonChecksum, block, version);
+
+
+		// Update save file checksum
+		vector<unsigned char> tmp = getSubVector(data, smallBlock2, smallBlock2 + versionNames[version][smallBlockChecksumOffset]);
+		int sum =  crc16ccitt(tmp);
+		updateChecksum(data, sum, block, version);
+	}
+	else{
+		cout << "Error: could not update pokemon checksum" << endl;
+		exit(EXIT_FAILURE);
+	}
 }
 
 
@@ -682,14 +793,6 @@ int main(int argc, char *argv[]){
 	vector<unsigned char> data;
 	readFile(argv[1], data);
 
-	// Find if data block to edit should be 1 or 2
-	int block = data[0] == 0xff ? 2 : 1;
-	/*
-		Notes:
-			 -> (!) Program assumes file in argv[1] is a valid save file for 4th gen NDS pokemon games
-			 -> Program has only been tested on the desmume emulator
-	*/
-
 	// Make sure the provided version is valid
 	string v = argv[2];
 	int version = -1;
@@ -704,13 +807,18 @@ int main(int argc, char *argv[]){
 		exit(EXIT_FAILURE);
 	}
 
+	// Find which block should be edited
+	int block = getCurBlock(data, version);
+
+	cout << block << endl;
+
 	int pv = getPersonalityValue(data, block, version);
 	vector<int> blockOffsets = getBlockOffsets(pv);
 
 	string title = "Pokemon Savefile Editor";
 	vector<string> optionsMain = {"Edit player", "Edit Pokemon", "Exit"};
 	vector<string> optionsPlayer = {"Edit player Name", "Back"};
-	vector<string> optionsPokemon = {"Edit Pokemon Species", "Edit Pokemon Ability", "Edit Pokemon Moves", "Back"};
+	vector<string> optionsPokemon = {"Edit Pokemon Species", "Edit Pokemon Ability", "Edit Pokemon Moves", "Make Pokemon Shiny", "Back"};
 
 
 
@@ -787,6 +895,10 @@ int main(int argc, char *argv[]){
 							writeFile(argv[1], data);
 							break;
 						case 4:
+							editPokemon(data, "", "", "", 0, blockOffsets, block, version, 4);
+							writeFile(argv[1], data);
+							break;
+						case 5:
 							flag = true;
 							break;
 						default:
