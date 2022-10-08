@@ -53,11 +53,6 @@ using namespace std;
 // --- Block Addresses --- //
 
 /* Notes:
-	-> Blocks 1 store the latest save state saved by the player
-	-> Blocks 2 store the previous save state saved by the player (the only get loaded if Blocks 1 are somehow corrupted)
- 	-> If the game is being saved for the first time the data gets saved to blocks 2
-	-> The second time the game is saved the new data is saved in blocks 1 and blocks 2 retain the original saved data
-	-> From the third save onward the save state in blocks 1 is moved to blocks 2 and the new save state is saved to blocks 1
 	-> Small block contains trainer data (name, id, money etc) and party pokemon data (species, ability, EVs, etc)
 	-> Big blocks contain data of pokemon stored in the PC boxes (untested)
 */
