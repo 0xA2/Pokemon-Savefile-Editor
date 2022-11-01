@@ -777,7 +777,7 @@ int readInt(int* op){
 int main(int argc, char *argv[]){
 
 	if(argc != 3){
-		cout << "Usage: ./saveditor [FileName] [VersionName]" << endl;
+		cout << "Usage: ./saveditor [path/to/savefile] [VersionName]" << endl;
 		cout << "Versions available: 'diamond', 'pearl', 'platinum', 'heartgold', 'soulsilver'" << endl;
 		exit(EXIT_FAILURE);
 	}
